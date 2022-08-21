@@ -86,7 +86,9 @@ public class RegionService {
 
         for (RegionRequest request : requests) {
             Region region = convert(request, null, players);
-            result.put(request.getName() + "|" + request.getServer(), region);
+            if (region != null) {
+                result.put(request.getName() + "|" + request.getServer(), region);
+            }
         }
 
         Region.persist(result.values());
