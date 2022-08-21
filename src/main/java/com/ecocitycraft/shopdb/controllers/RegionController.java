@@ -45,6 +45,7 @@ public class RegionController {
     ChestShopService chestShopService;
 
     @GET
+    @Transactional
     public PaginatedResponse<RegionDto> getRegions(
             @DefaultValue("1") @QueryParam("page") Integer page,
             @DefaultValue("6") @QueryParam("pageSize") Integer pageSize,

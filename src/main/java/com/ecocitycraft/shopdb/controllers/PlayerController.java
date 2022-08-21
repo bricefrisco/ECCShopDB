@@ -21,6 +21,7 @@ import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.transaction.Transactional;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import java.util.List;
@@ -33,6 +34,7 @@ public class PlayerController {
     Logger LOGGER = LoggerFactory.getLogger(PlayerController.class);
 
     @GET
+    @Transactional
     public PaginatedResponse<PlayerDto> getPlayers(
             @DefaultValue("1") @QueryParam("page") Integer page,
             @DefaultValue("6") @QueryParam("pageSize") Integer pageSize,
