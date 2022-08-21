@@ -46,4 +46,4 @@ Outputs:
     Description: ECCShopDB API URL
     Value: !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/'
     Export:
-      Name: ECCShopDBAPI
+      Name: !Sub "ECCShopDBAPI-${Environment}"
