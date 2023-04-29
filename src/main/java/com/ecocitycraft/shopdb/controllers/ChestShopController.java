@@ -9,8 +9,6 @@ import com.ecocitycraft.shopdb.services.APIKeyValidator;
 import com.ecocitycraft.shopdb.services.ChestShopService;
 import com.ecocitycraft.shopdb.services.Pagination;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
-import io.quarkus.hibernate.orm.panache.PanacheQuery;
-import io.quarkus.panache.common.Sort;
 import org.jboss.resteasy.annotations.jaxrs.QueryParam;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,20 +48,8 @@ public class ChestShopController {
         if (page < 1) throw new SDBIllegalArgumentException(ExceptionMessage.INVALID_PAGE);
         if (pageSize > 100 || pageSize < 1) throw new SDBIllegalArgumentException(ExceptionMessage.INVALID_PAGE_SIZE);
 
-        Sort sort = this.mapSortBy(sortBy, tradeType);
-        PanacheQuery<ChestShop> chestShops = ChestShop.find(material, tradeType, server, hideUnavailable, sort);
-
-        if (!distinct) {
-            long totalResults = chestShops.count();
-            List<ChestShopDto> results = chestShops.page(page - 1, pageSize)
-                    .stream().map(ChestShopMapper::toChestShopDto).collect(Collectors.toList());
-
-            return new PaginatedResponse<>(page, Pagination.getNumPages(pageSize, totalResults), totalResults, shuffle(results, tradeType, sortBy));
-        }
-
-        Set<ChestShop> distinctChestShops = this.findDistinctValues(chestShops, tradeType);
-        long totalResults = distinctChestShops.size();
-        List<ChestShopDto> results = Pagination.getPage(new LinkedList<>(distinctChestShops), page, pageSize)
+        long totalResults = ChestShop.count(material, tradeType, server, hideUnavailable, sortBy, distinct);
+        List<ChestShopDto> results = ChestShop.find(material, tradeType, server, hideUnavailable, sortBy, distinct, page - 1, pageSize)
                 .stream().map(ChestShopMapper::toChestShopDto).collect(Collectors.toList());
 
         return new PaginatedResponse<>(page, Pagination.getNumPages(pageSize, totalResults), totalResults, shuffle(results, tradeType, sortBy));
@@ -117,30 +103,5 @@ public class ChestShopController {
                 return Double.compare(b.getSellPriceEach(), a.getSellPriceEach());
             }
         }).collect(Collectors.toList());
-    }
-
-    private Sort mapSortBy(SortBy sortBy, TradeType tradeType) {
-        if (sortBy == SortBy.BEST_PRICE && tradeType == TradeType.BUY) return Sort.by("buyPriceEach").ascending();
-        if (sortBy == SortBy.BEST_PRICE && tradeType == TradeType.SELL) return Sort.by("sellPriceEach").descending();
-        if (sortBy == SortBy.QUANTITY_AVAILABLE) return Sort.by("quantityAvailable").descending();
-        if (sortBy == SortBy.QUANTITY) return Sort.by("quantity").descending();
-        return Sort.by("material").ascending();
-    }
-
-    private Set<ChestShop> findDistinctValues(PanacheQuery<ChestShop> chestShops, TradeType tradeType) {
-        LinkedHashMap<ChestShop, ChestShop> distinctValues = new LinkedHashMap<>();
-
-        chestShops.stream().forEach(cs -> {
-            ChestShop cs2 = distinctValues.get(cs);
-            if (
-                    cs2 == null ||
-                            tradeType == TradeType.BUY && cs.quantityAvailable > cs2.quantityAvailable ||
-                            tradeType == TradeType.SELL && cs.quantityAvailable < cs2.quantityAvailable
-            ) {
-                distinctValues.put(cs, cs);
-            }
-        });
-
-        return distinctValues.keySet();
     }
 }

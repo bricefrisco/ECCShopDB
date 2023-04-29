@@ -2,22 +2,26 @@ package com.ecocitycraft.shopdb.models.regions;
 
 import com.ecocitycraft.shopdb.models.chestshops.Location;
 import com.ecocitycraft.shopdb.models.chestshops.Server;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 
 import java.sql.Timestamp;
 
-@JsonInclude(JsonInclude.Include.NON_NULL)
 @RegisterForReflection
-public class RegionDto {
+public class RegionsQueryView {
+    private Long id;
     private String name;
     private Server server;
     private Location iBounds;
     private Location oBounds;
-    private int numChestShops;
-    private int numMayors;
+    private Integer numChestShops;
+    private Integer numMayors;
+
     private Boolean active;
     private Timestamp lastUpdated;
+
+    public Long getId() {
+        return id;
+    }
 
     public String getName() {
         return name;
@@ -35,11 +39,11 @@ public class RegionDto {
         return oBounds;
     }
 
-    public int getNumChestShops() {
+    public Integer getNumChestShops() {
         return numChestShops;
     }
 
-    public int getNumMayors() {
+    public Integer getNumMayors() {
         return numMayors;
     }
 
@@ -49,6 +53,10 @@ public class RegionDto {
 
     public Timestamp getLastUpdated() {
         return lastUpdated;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
     }
 
     public void setName(String name) {
@@ -67,11 +75,11 @@ public class RegionDto {
         this.oBounds = oBounds;
     }
 
-    public void setNumChestShops(int numChestShops) {
+    public void setNumChestShops(Integer numChestShops) {
         this.numChestShops = numChestShops;
     }
 
-    public void setNumMayors(int numMayors) {
+    public void setNumMayors(Integer numMayors) {
         this.numMayors = numMayors;
     }
 

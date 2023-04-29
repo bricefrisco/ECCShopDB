@@ -1,13 +1,15 @@
 package com.ecocitycraft.shopdb.database;
 
 import com.ecocitycraft.shopdb.models.chestshops.SortBy;
+import com.ecocitycraft.shopdb.models.players.PlayersQueryView;
+import io.quarkus.hibernate.orm.panache.Panache;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
-import io.quarkus.hibernate.orm.panache.PanacheQuery;
-import io.quarkus.panache.common.Sort;
 
 import javax.persistence.*;
 import javax.validation.constraints.Size;
+import java.math.BigInteger;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "player")
@@ -27,26 +29,93 @@ public class Player extends PanacheEntityBase {
     @JoinTable(name = "region_mayors", joinColumns = @JoinColumn(name = "mayors_id"), inverseJoinColumns = @JoinColumn(name = "towns_id"))
     public List<Region> towns;
 
-    public static PanacheQuery<Player> find(String name, SortBy sortBy) {
+    public static Long id(String name) {
         name = name.toLowerCase(Locale.ROOT);
 
-        if (sortBy == SortBy.NUM_CHEST_SHOPS) {
-            return Player.find("SELECT p FROM Player p LEFT JOIN p.chestShops c " +
-                    "WHERE (?1 = '' OR name = ?1) " +
-                    "GROUP BY p.id ORDER BY COUNT(c.id) DESC", name);
-        }
-
-        if (sortBy == SortBy.NUM_REGIONS) {
-            System.out.println("sorting by # regions");
-            return Player.find("SELECT p FROM Player p LEFT JOIN p.towns t " +
-                    "WHERE (?1 = '' OR p.name = ?1) " +
-                    "GROUP BY p.id ORDER BY COUNT(t.id) DESC", name);
-        }
-
-        return Player.find("(?1 = '' OR name = ?1)",
-                Sort.by("name"),
-                name
+        Query q = Panache.getEntityManager().createNativeQuery(
+                "SELECT p.id FROM player p " +
+                        "WHERE p.name = ?1"
         );
+
+        q.setParameter(1, name);
+
+        return ((BigInteger) q.getSingleResult()).longValue();
+    }
+
+    public static Long count(String name) {
+        name = name.toLowerCase(Locale.ROOT);
+
+        Query q = Panache.getEntityManager().createNativeQuery(
+                "SELECT COUNT(*) FROM player p " +
+                        "WHERE (?1 = '' OR p.name = ?1)"
+        );
+
+        q.setParameter(1, name);
+
+        return ((BigInteger) q.getSingleResult()).longValue();
+    }
+
+    public static List<PlayersQueryView> find(String name, SortBy sortBy, Integer page, Integer pageSize) {
+        name = name.toLowerCase(Locale.ROOT);
+
+        Query q = Panache.getEntityManager().createNativeQuery(
+                "SELECT p.id, p.name, " +
+                        "(SELECT COUNT(*) FROM chest_shop_sign WHERE owner_id = p.id) AS num_chest_shops, " +
+                        "(SELECT COUNT(*) FROM region_mayors WHERE mayors_id = p.id) AS num_regions " +
+                        "FROM player p " +
+                        "WHERE (?1 = '' OR p.name = ?1) " +
+                        mapSortBy(sortBy) + " " +
+                        "LIMIT ?2 OFFSET ?3"
+        );
+
+        q.setParameter(1, name);
+        q.setParameter(2, pageSize);
+        q.setParameter(3, page * pageSize);
+
+        List<Object[]> results = q.getResultList();
+        return results.stream().map(record -> {
+            PlayersQueryView view = new PlayersQueryView();
+            view.setName((String) record[1]);
+            view.setNumChestShops(((BigInteger) record[2]).intValue());
+            view.setNumRegions(((BigInteger) record[3]).intValue());
+            return view;
+        }).collect(Collectors.toList());
+    }
+
+    public static Long countByRegionId(Long regionId) {
+        Query q = Panache.getEntityManager().createNativeQuery(
+                "SELECT COUNT(*) FROM player p " +
+                        "WHERE p.id IN (SELECT mayors_id FROM region_mayors WHERE towns_id = ?1)"
+        );
+
+        q.setParameter(1, regionId);
+
+        return ((BigInteger) q.getSingleResult()).longValue();
+    }
+
+    public static List<PlayersQueryView> findByRegionId(Long regionId, Integer page, Integer pageSize) {
+        Query q = Panache.getEntityManager().createNativeQuery(
+                "SELECT p.id, p.name, " +
+                        "(SELECT COUNT(*) FROM chest_shop_sign WHERE owner_id = p.id) AS num_chest_shops, " +
+                        "(SELECT COUNT(*) FROM region_mayors WHERE mayors_id = p.id) AS num_regions " +
+                        "FROM player p " +
+                        "WHERE p.id IN (SELECT mayors_id FROM region_mayors WHERE towns_id = ?1) " +
+                        "ORDER BY p.name ASC " +
+                        "LIMIT ?2 OFFSET ?3"
+        );
+
+        q.setParameter(1, regionId);
+        q.setParameter(2, pageSize);
+        q.setParameter(3, page * pageSize);
+
+        List<Object[]> results = q.getResultList();
+        return results.stream().map(record -> {
+            PlayersQueryView view = new PlayersQueryView();
+            view.setName((String) record[1]);
+            view.setNumChestShops(((BigInteger) record[2]).intValue());
+            view.setNumRegions(((BigInteger) record[3]).intValue());
+            return view;
+        }).collect(Collectors.toList());
     }
 
     public static Player findByName(String name) {
@@ -75,6 +144,17 @@ public class Player extends PanacheEntityBase {
 
     public static List<PanacheEntityBase> findPlayerNames() {
         return Player.find("SELECT name FROM Player WHERE (?1 = true) ORDER BY name", true).list();
+    }
+
+    private static String mapSortBy(SortBy sortBy) {
+        switch (sortBy) {
+            case NUM_CHEST_SHOPS:
+                return "ORDER BY num_chest_shops DESC";
+            case NUM_REGIONS:
+                return "ORDER BY num_regions DESC";
+            default:
+                return "ORDER BY p.name ASC";
+        }
     }
 
     public String getName() {

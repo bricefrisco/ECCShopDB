@@ -1,48 +1,23 @@
 package com.ecocitycraft.shopdb.models.regions;
 
-import com.ecocitycraft.shopdb.database.Player;
-import com.ecocitycraft.shopdb.database.Region;
+import io.quarkus.runtime.annotations.RegisterForReflection;
 
-import java.util.ArrayList;
-import java.util.List;
-
+@RegisterForReflection
 public final class RegionMapper {
-    public static RegionPlayerDto toRegionPlayerDto(Player player) {
-        if (player == null) {
-            return null;
-        }
-
-        RegionPlayerDto result = new RegionPlayerDto();
-        result.setName(player.getName());
-
-        return result;
-    }
-
-    public static RegionDto toRegionDto(Region region) {
-        if (region == null) {
+    public static RegionDto toRegionDto(RegionsQueryView regionsQueryView) {
+        if (regionsQueryView == null) {
             return null;
         }
 
         RegionDto result = new RegionDto();
-        result.setName(region.getName());
-        result.setServer(region.server);
-        result.setiBounds(region.getiBounds());
-        result.setoBounds(region.getoBounds());
-        result.setNumChestShops(region.chestShops.size());
-        result.setActive(region.active);
-
-        List<RegionPlayerDto> mayors = new ArrayList<>();
-        if (region.mayors != null) {
-            for (Player player : region.mayors) {
-                RegionPlayerDto regionPlayerDto = toRegionPlayerDto(player);
-                if (regionPlayerDto != null) {
-                    mayors.add(regionPlayerDto);
-                }
-            }
-        }
-        result.setMayors(mayors);
-
-        result.setLastUpdated(region.lastUpdated);
+        result.setName(regionsQueryView.getName());
+        result.setServer(regionsQueryView.getServer());
+        result.setiBounds(regionsQueryView.getiBounds());
+        result.setoBounds(regionsQueryView.getoBounds());
+        result.setNumChestShops(regionsQueryView.getNumChestShops());
+        result.setNumMayors(regionsQueryView.getNumMayors());
+        result.setActive(regionsQueryView.getActive());
+        result.setLastUpdated(regionsQueryView.getLastUpdated());
 
         return result;
     }
