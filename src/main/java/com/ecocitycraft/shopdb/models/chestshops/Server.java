@@ -21,7 +21,7 @@ public enum Server {
             case "main-east":
                 return MAIN_EAST;
             default:
-                throw new SDBIllegalArgumentException(ExceptionMessage.INVALID_SERVER);
+                throw new SDBIllegalArgumentException(ExceptionMessage.INVALID_SERVER + ": " + s);
         }
     }
 
@@ -35,7 +35,7 @@ public enum Server {
             case MAIN_EAST:
                 return "MAIN_EAST";
             default:
-                throw new SDBIllegalArgumentException(ExceptionMessage.INVALID_SERVER);
+                throw new SDBIllegalArgumentException(ExceptionMessage.INVALID_SERVER + ": " + server);
         }
     }
 }

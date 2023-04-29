@@ -10,19 +10,21 @@ import com.ecocitycraft.shopdb.models.exceptions.SDBIllegalArgumentException;
 import com.ecocitycraft.shopdb.models.exceptions.SDBNotFoundException;
 import com.ecocitycraft.shopdb.models.players.PlayerDto;
 import com.ecocitycraft.shopdb.models.players.PlayerMapper;
+import com.ecocitycraft.shopdb.models.players.PlayersQueryView;
 import com.ecocitycraft.shopdb.models.regions.RegionDto;
 import com.ecocitycraft.shopdb.models.regions.RegionMapper;
 import com.ecocitycraft.shopdb.models.regions.RegionRequest;
+import com.ecocitycraft.shopdb.models.regions.RegionsQueryView;
 import com.ecocitycraft.shopdb.services.APIKeyValidator;
 import com.ecocitycraft.shopdb.services.ChestShopService;
 import com.ecocitycraft.shopdb.services.Pagination;
 import com.ecocitycraft.shopdb.services.RegionService;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
-import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
+import javax.persistence.NoResultException;
 import javax.transaction.Transactional;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
@@ -58,10 +60,10 @@ public class RegionController {
         if (page < 1) throw new SDBIllegalArgumentException(ExceptionMessage.INVALID_PAGE);
         if (pageSize < 1 || pageSize > 100) throw new SDBIllegalArgumentException(ExceptionMessage.INVALID_PAGE_SIZE);
 
-        PanacheQuery<Region> regions = Region.findByServerAndName(server, active, name, sortBy);
-        long totalResults = Region.findByServerAndName(server, active, name, SortBy.NAME).count();
-        List<RegionDto> results = regions.page(page - 1, pageSize).stream().map(RegionMapper::toRegionDto).collect(Collectors.toList());
+        long totalResults = Region.count(server, active, name);
+        List<RegionsQueryView> regions = Region.find(server, active, name, sortBy, page - 1, pageSize);
 
+        List<RegionDto> results = regions.stream().map(RegionMapper::toRegionDto).collect(Collectors.toList());
         return new PaginatedResponse<>(page, Pagination.getNumPages(pageSize, totalResults), totalResults, results);
     }
 
@@ -85,10 +87,17 @@ public class RegionController {
         if (name == null) throw new SDBIllegalArgumentException(ExceptionMessage.EMPTY_REGION_NAME);
         if (server == null) throw new SDBIllegalArgumentException(ExceptionMessage.EMPTY_SERVER_NAME);
 
-        Region region = Region.findByServerAndName(server, name);
-        if (region == null) throw new SDBNotFoundException(String.format(ExceptionMessage.REGION_NOT_FOUND, name, server));
+        List<RegionsQueryView> regions = Region.find(server, false, name, SortBy.NAME, 0, 10);
+        if (regions.size() != 1) {
+            throw new SDBNotFoundException(String.format(ExceptionMessage.REGION_NOT_FOUND, name, server));
+        }
 
-        return RegionMapper.toRegionDto(Region.findByServerAndName(server, name));
+        RegionsQueryView region = regions.get(0);
+        if (!region.getName().equalsIgnoreCase(name)) {
+            throw new SDBNotFoundException(String.format(ExceptionMessage.REGION_NOT_FOUND, name, server));
+        }
+
+        return RegionMapper.toRegionDto(region);
     }
 
     @GET
@@ -105,11 +114,15 @@ public class RegionController {
         if (name == null) throw new SDBIllegalArgumentException(ExceptionMessage.EMPTY_REGION_NAME);
         if (server == null) throw new SDBIllegalArgumentException(ExceptionMessage.EMPTY_SERVER_NAME);
 
-        Region region = Region.findByServerAndName(server, name);
-        if (region == null) throw new SDBNotFoundException(String.format(ExceptionMessage.REGION_NOT_FOUND, name, server));
+        Long id;
+        try {
+            id = Region.id(server, name);
+        } catch (NoResultException e) {
+            throw new SDBNotFoundException(String.format(ExceptionMessage.REGION_NOT_FOUND, name, server));
+        }
 
-        List<Player> players = Pagination.getPage(region.mayors, page, pageSize);
-        int totalResults = players.size();
+        long totalResults = Player.countByRegionId(id);
+        List<PlayersQueryView> players = Player.findByRegionId(id, page - 1, pageSize);
         List<PlayerDto> results = players.stream().map(PlayerMapper::toPlayerDto).collect(Collectors.toList());
 
         return new PaginatedResponse<>(page, Pagination.getNumPages(pageSize, totalResults), totalResults, results);
@@ -128,12 +141,16 @@ public class RegionController {
         if (page < 1) throw new SDBIllegalArgumentException(ExceptionMessage.INVALID_PAGE);
         if (pageSize < 1 || pageSize > 100) throw new SDBIllegalArgumentException(ExceptionMessage.INVALID_PAGE_SIZE);
 
-        Region region = Region.findByServerAndName(server, name);
-        if (region == null) throw new SDBNotFoundException(String.format(ExceptionMessage.REGION_NOT_FOUND, name, server));
+        Long id;
+        try {
+            id = Region.id(server, name);
+        } catch (NoResultException e) {
+            throw new SDBNotFoundException(String.format(ExceptionMessage.REGION_NOT_FOUND, name, server));
+        }
 
-        PanacheQuery<ChestShop> chestShops = ChestShop.findInRegion(region, tradeType);
-        long totalResults = chestShops.count();
-        List<ChestShopDto> results = chestShops.page(page - 1, pageSize).stream().map(ChestShopMapper::toChestShopDto).collect(Collectors.toList());
+        long totalResults = ChestShop.countByRegionId(id, tradeType);
+        List<ChestShopsQueryView> chestShops = ChestShop.findByRegionId(id, tradeType, page - 1, pageSize);
+        List<ChestShopDto> results = chestShops.stream().map(ChestShopMapper::toChestShopDto).collect(Collectors.toList());
 
         return new PaginatedResponse<>(page, Pagination.getNumPages(pageSize, totalResults), totalResults, results);
     }

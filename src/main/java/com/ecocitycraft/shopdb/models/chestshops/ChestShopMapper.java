@@ -1,50 +1,46 @@
 package com.ecocitycraft.shopdb.models.chestshops;
 
-import com.ecocitycraft.shopdb.database.ChestShop;
-import com.ecocitycraft.shopdb.database.Player;
-import com.ecocitycraft.shopdb.database.Region;
-
 public final class ChestShopMapper {
-    public static ChestShopRegionDto toChestShopRegionDto(Region region) {
-        if (region == null) {
+    public static ChestShopRegionDto toChestShopRegionDto(String regionName) {
+        if (regionName == null) {
             return null;
         }
 
         ChestShopRegionDto result = new ChestShopRegionDto();
-        result.setName(region.getName());
+        result.setName(regionName);
         return result;
     }
 
-    public static ChestShopPlayerDto toChestShopPlayerDto(Player player) {
-        if (player == null) {
+    public static ChestShopPlayerDto toChestShopPlayerDto(String playerName) {
+        if (playerName == null) {
             return null;
         }
 
         ChestShopPlayerDto result = new ChestShopPlayerDto();
-        result.setName(player.getName());
+        result.setName(playerName);
         return result;
     }
 
-    public static ChestShopDto toChestShopDto(ChestShop chestShop) {
+    public static ChestShopDto toChestShopDto(ChestShopsQueryView chestShop) {
         if (chestShop == null) {
             return null;
         }
 
         ChestShopDto result = new ChestShopDto();
-        result.setServer(chestShop.server);
+        result.setServer(chestShop.getServer());
         result.setLocation(chestShop.getLocation());
-        result.setMaterial(chestShop.material);
-        result.setOwner(toChestShopPlayerDto(chestShop.owner));
-        result.setTown(toChestShopRegionDto(chestShop.town));
-        result.setQuantity(chestShop.quantity);
-        result.setQuantityAvailable(chestShop.quantityAvailable);
-        result.setBuyPrice(chestShop.buyPrice);
-        result.setSellPrice(chestShop.sellPrice);
-        result.setBuyPriceEach(chestShop.buyPriceEach);
-        result.setSellPriceEach(chestShop.sellPriceEach);
-        result.setFull(chestShop.isFull);
-        result.setBuySign(chestShop.isBuySign);
-        result.setSellSign(chestShop.isSellSign);
+        result.setMaterial(chestShop.getMaterial());
+        result.setOwner(toChestShopPlayerDto(chestShop.getOwnerName()));
+        result.setTown(toChestShopRegionDto(chestShop.getTownName()));
+        result.setQuantity(chestShop.getQuantity());
+        result.setQuantityAvailable(chestShop.getQuantityAvailable());
+        result.setBuyPrice(chestShop.getBuyPrice());
+        result.setSellPrice(chestShop.getSellPrice());
+        result.setBuyPriceEach(chestShop.getBuyPriceEach());
+        result.setSellPriceEach(chestShop.getSellPriceEach());
+        result.setFull(chestShop.getFull());
+        result.setBuySign(chestShop.getBuySign());
+        result.setSellSign(chestShop.getSellSign());
 
         return result;
     }

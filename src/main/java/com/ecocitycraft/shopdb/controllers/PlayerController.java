@@ -4,23 +4,22 @@ import com.ecocitycraft.shopdb.database.ChestShop;
 import com.ecocitycraft.shopdb.database.Player;
 import com.ecocitycraft.shopdb.database.Region;
 import com.ecocitycraft.shopdb.models.PaginatedResponse;
-import com.ecocitycraft.shopdb.models.chestshops.ChestShopDto;
-import com.ecocitycraft.shopdb.models.chestshops.ChestShopMapper;
-import com.ecocitycraft.shopdb.models.chestshops.SortBy;
-import com.ecocitycraft.shopdb.models.chestshops.TradeType;
+import com.ecocitycraft.shopdb.models.chestshops.*;
 import com.ecocitycraft.shopdb.models.exceptions.ExceptionMessage;
 import com.ecocitycraft.shopdb.models.exceptions.SDBIllegalArgumentException;
 import com.ecocitycraft.shopdb.models.exceptions.SDBNotFoundException;
 import com.ecocitycraft.shopdb.models.players.PlayerDto;
 import com.ecocitycraft.shopdb.models.players.PlayerMapper;
+import com.ecocitycraft.shopdb.models.players.PlayersQueryView;
 import com.ecocitycraft.shopdb.models.regions.RegionDto;
 import com.ecocitycraft.shopdb.models.regions.RegionMapper;
+import com.ecocitycraft.shopdb.models.regions.RegionsQueryView;
 import com.ecocitycraft.shopdb.services.Pagination;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
-import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.persistence.NoResultException;
 import javax.transaction.Transactional;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
@@ -46,9 +45,10 @@ public class PlayerController {
         if (page < 1) throw new SDBIllegalArgumentException(ExceptionMessage.INVALID_PAGE);
         if (pageSize < 1 || pageSize > 100) throw new SDBIllegalArgumentException(ExceptionMessage.INVALID_PAGE_SIZE);
 
-        PanacheQuery<Player> players = Player.find(name, sortBy);
-        long totalResults = Player.find(name, SortBy.NAME).count();
-        List<PlayerDto> results = players.page(page - 1, pageSize).stream().map(PlayerMapper::toPlayerDto).collect(Collectors.toList());
+        long totalResults = Player.count(name);
+        List<PlayersQueryView> players = Player.find(name, sortBy, page - 1, pageSize);
+
+        List<PlayerDto> results = players.stream().map(PlayerMapper::toPlayerDto).collect(Collectors.toList());
         return new PaginatedResponse<>(page, Pagination.getNumPages(pageSize, totalResults), totalResults, results);
     }
 
@@ -62,7 +62,13 @@ public class PlayerController {
     @Path("{name}")
     public PlayerDto getPlayer(@PathParam("name") String name) {
         LOGGER.info("GET /players/" + name);
-        return PlayerMapper.toPlayerDto(Player.findByName(name));
+
+        List<PlayersQueryView> players = Player.find(name, SortBy.NAME, 0, 10);
+        if (players.size() == 0 || !players.get(0).getName().equalsIgnoreCase(name)) {
+            throw new SDBNotFoundException(String.format(ExceptionMessage.PLAYER_NOT_FOUND, name));
+        }
+
+        return PlayerMapper.toPlayerDto(players.get(0));
     }
 
     @GET
@@ -78,12 +84,15 @@ public class PlayerController {
         if (pageSize < 1 || pageSize > 100) throw new SDBIllegalArgumentException(ExceptionMessage.INVALID_PAGE_SIZE);
         if (name == null || name.isEmpty()) throw new SDBIllegalArgumentException(ExceptionMessage.EMPTY_PLAYER_NAME);
 
-        Player p = Player.findByName(name);
-        if (p == null) throw new SDBNotFoundException(String.format(ExceptionMessage.PLAYER_NOT_FOUND, name));
+        Long id;
+        try {
+            id = Player.id(name);
+        } catch (NoResultException e) {
+            throw new SDBNotFoundException(String.format(ExceptionMessage.PLAYER_NOT_FOUND, name));
+        }
 
-        List<Region> regions = p.towns;
-        int totalResults = regions.size();
-        regions = Pagination.getPage(p.towns, page, pageSize);
+        long totalResults = Region.countByPlayerId(id);
+        List<RegionsQueryView> regions = Region.findByPlayerId(id, page - 1, pageSize);
         List<RegionDto> results = regions.stream().map(RegionMapper::toRegionDto).collect(Collectors.toList());
 
         return new PaginatedResponse<>(page, Pagination.getNumPages(pageSize, totalResults), totalResults, results);
@@ -102,13 +111,17 @@ public class PlayerController {
         if (pageSize < 1 || pageSize > 100) throw new SDBIllegalArgumentException(ExceptionMessage.INVALID_PAGE_SIZE);
         if (name == null || name.isEmpty()) throw new SDBIllegalArgumentException(ExceptionMessage.EMPTY_PLAYER_NAME);
 
-        Player p = Player.findByName(name);
-        if (p == null) throw new SDBNotFoundException(String.format(ExceptionMessage.PLAYER_NOT_FOUND, name));
+        Long id;
+        try {
+            id = Player.id(name);
+        } catch (NoResultException e) {
+            throw new SDBNotFoundException(String.format(ExceptionMessage.PLAYER_NOT_FOUND, name));
+        }
 
-        PanacheQuery<ChestShop> chestShops = ChestShop.findOwnedBy(p, tradeType);
+        long totalResults = ChestShop.countByPlayerId(id, tradeType);
+        List<ChestShopsQueryView> chestShops = ChestShop.findByPlayerId(id, tradeType, page - 1, pageSize);
+        List<ChestShopDto> results = chestShops.stream().map(ChestShopMapper::toChestShopDto).collect(Collectors.toList());
 
-        long totalResults = chestShops.count();
-        List<ChestShopDto> results = chestShops.page(page - 1, pageSize).stream().map(ChestShopMapper::toChestShopDto).collect(Collectors.toList());
         return new PaginatedResponse<>(page, Pagination.getNumPages(pageSize, totalResults), totalResults, results);
     }
 }

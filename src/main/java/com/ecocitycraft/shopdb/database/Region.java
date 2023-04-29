@@ -1,16 +1,18 @@
 package com.ecocitycraft.shopdb.database;
 
 import com.ecocitycraft.shopdb.models.chestshops.Location;
+import com.ecocitycraft.shopdb.models.regions.RegionsQueryView;
 import com.ecocitycraft.shopdb.models.chestshops.Server;
 import com.ecocitycraft.shopdb.models.chestshops.SortBy;
+import io.quarkus.hibernate.orm.panache.Panache;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
-import io.quarkus.hibernate.orm.panache.PanacheQuery;
-import io.quarkus.panache.common.Sort;
 
 import javax.persistence.*;
+import java.math.BigInteger;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "region")
@@ -54,31 +56,113 @@ public class Region extends PanacheEntityBase {
     @Column(name = "last_updated")
     public Timestamp lastUpdated;
 
-    public static PanacheQuery<Region> findByServerAndName(Server server, Boolean active, String name, SortBy sortBy) {
-        if (sortBy == SortBy.NUM_PLAYERS) {
-            return Region.find("SELECT r FROM Region r LEFT JOIN r.mayors m " +
-                    "WHERE (?1 = '' OR r.server = ?1) AND " +
-                    "(?2 = false OR r.active = true) AND " +
-                    "(?3 = '' OR r.name = ?3) " +
-                    "GROUP BY r.id ORDER BY COUNT(m.id) DESC",
-                    Server.toString(server), active, name);
-        }
+    public static Long id(Server server, String name) {
+        Query q = Panache.getEntityManager().createNativeQuery(
+                "SELECT id FROM region WHERE server = ?1 AND name = ?2"
+        );
 
-        if (sortBy == SortBy.NUM_CHEST_SHOPS) {
-            return Region.find("SELECT r FROM Region r LEFT JOIN r.chestShops c " +
-                    "WHERE (?1 = '' OR r.server = ?1) AND " +
-                    "(?2 = false OR r.active = true) AND " +
-                    "(?3 = '' OR r.name = ?3) " +
-                    "GROUP BY r.id ORDER BY COUNT(c.id) DESC",
-                    Server.toString(server), active, name);
-        }
+        q.setParameter(1, Server.toString(server));
+        q.setParameter(2, name.toLowerCase(Locale.ROOT));
 
-        return Region.find(
-                "(?1 = '' OR server = ?1) AND " +
-                        "(?2 = false OR active = true) AND " +
-                        "(?3 = '' OR name = ?3)",
-                Sort.by("name"),
-                Server.toString(server), active, name);
+        return ((BigInteger) q.getSingleResult()).longValue();
+    }
+
+    public static Long count(Server server, Boolean active, String name) {
+        Query q = Panache.getEntityManager().createNativeQuery(
+                "SELECT COUNT(r.id) " +
+                        "FROM region r " +
+                        "WHERE (?1 = '' OR r.server = ?1) AND " +
+                        "(?2 = false OR r.active = true) AND " +
+                        "(?3 = '' OR r.name = ?3)"
+        );
+
+        q.setParameter(1, Server.toString(server));
+        q.setParameter(2, active);
+        q.setParameter(3, name);
+
+        return ((Number) q.getSingleResult()).longValue();
+    }
+
+    public static List<RegionsQueryView> find(Server server, Boolean active, String name, SortBy sortBy, Integer page, Integer pageSize) {
+        Query q = Panache.getEntityManager().createNativeQuery(
+                "SELECT r.id, r.active, r.i_x, r.i_y, r.i_z, r.last_updated, r.name, r.o_x, r.o_y, r.o_z, r.server, " +
+                        "(SELECT COUNT(*) FROM chest_shop_sign WHERE town_id = r.id) AS num_chest_shops, " +
+                        "(SELECT COUNT(*) FROM region_mayors WHERE towns_id = r.id) AS num_mayors " +
+                        "FROM region r " +
+                        "WHERE (?1 = '' OR r.server = ?1) AND " +
+                        "(?2 = false OR r.active = true) AND " +
+                        "(?3 = '' OR r.name = ?3) " +
+                        mapSortBy(sortBy) + " " +
+                        "LIMIT ?4 OFFSET ?5"
+        );
+
+        q.setParameter(1, Server.toString(server));
+        q.setParameter(2, active);
+        q.setParameter(3, name.toLowerCase());
+        q.setParameter(4, pageSize);
+        q.setParameter(5, page * pageSize);
+
+        List<Object[]> results = q.getResultList();
+        return results.stream().map(record -> {
+            RegionsQueryView view = new RegionsQueryView();
+            view.setId(((BigInteger) record[0]).longValue());
+            view.setActive((Boolean) record[1]);
+            Location location = new Location();
+            location.setX(((BigInteger) record[2]).intValue());
+            location.setY(((BigInteger) record[3]).intValue());
+            location.setZ(((BigInteger) record[4]).intValue());
+            view.setiBounds(location);
+            view.setLastUpdated((Timestamp) record[5]);
+            view.setName((String) record[6]);
+            location = new Location();
+            location.setX(((BigInteger) record[7]).intValue());
+            location.setY(((BigInteger) record[8]).intValue());
+            location.setZ(((BigInteger) record[9]).intValue());
+            view.setoBounds(location);
+            view.setServer(Server.valueOf(((String) record[10]).toUpperCase()));
+            view.setNumChestShops(((BigInteger) record[11]).intValue());
+            view.setNumMayors(((BigInteger) record[12]).intValue());
+            return view;
+        }).collect(Collectors.toList());
+    }
+
+    public static Long countByPlayerId(Long playerId) {
+        Query q = Panache.getEntityManager().createNativeQuery(
+                "SELECT COUNT(r.id) " +
+                        "FROM region r " +
+                        "WHERE r.id IN (SELECT towns_id FROM region_mayors WHERE mayors_id = ?1)"
+        );
+
+        q.setParameter(1, playerId);
+
+        return ((Number) q.getSingleResult()).longValue();
+    }
+
+    public static List<RegionsQueryView> findByPlayerId(Long playerId, Integer page, Integer pageSize) {
+        Query q = Panache.getEntityManager().createNativeQuery(
+                "SELECT r.name, r.active, r.server, " +
+                        "(SELECT COUNT(*) FROM chest_shop_sign WHERE town_id = r.id) AS num_chest_shops, " +
+                        "(SELECT COUNT(*) FROM region_mayors WHERE towns_id = r.id) AS num_mayors " +
+                        "FROM region r " +
+                        "WHERE r.id IN (SELECT towns_id FROM region_mayors WHERE mayors_id = ?1) " +
+                        "ORDER BY r.name ASC " +
+                        "LIMIT ?2 OFFSET ?3"
+        );
+
+        q.setParameter(1, playerId);
+        q.setParameter(2, pageSize);
+        q.setParameter(3, page * pageSize);
+
+        List<Object[]> results = q.getResultList();
+        return results.stream().map(record -> {
+            RegionsQueryView view = new RegionsQueryView();
+            view.setName((String) record[0]);
+            view.setActive((Boolean) record[1]);
+            view.setServer(Server.valueOf(((String) record[2]).toUpperCase()));
+            view.setNumChestShops(((BigInteger) record[3]).intValue());
+            view.setNumMayors(((BigInteger) record[4]).intValue());
+            return view;
+        }).collect(Collectors.toList());
     }
 
     public static Region findByServerAndName(Server server, String name) {
@@ -91,6 +175,17 @@ public class Region extends PanacheEntityBase {
                 "(?1 = '' OR server = ?1) AND " +
                 "(?2 = false OR active = true) " +
                 "ORDER BY name", Server.toString(server), active).list();
+    }
+
+    private static String mapSortBy(SortBy sortBy) {
+        switch (sortBy) {
+            case NUM_CHEST_SHOPS:
+                return "ORDER BY num_chest_shops DESC";
+            case NUM_PLAYERS:
+                return "ORDER BY num_mayors DESC";
+            default:
+                return "ORDER BY r.name ASC";
+        }
     }
 
     public String getName() {
