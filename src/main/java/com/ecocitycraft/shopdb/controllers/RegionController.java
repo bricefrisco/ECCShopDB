@@ -155,10 +155,31 @@ public class RegionController {
         return new PaginatedResponse<>(page, Pagination.getNumPages(pageSize, totalResults), totalResults, results);
     }
 
+    @DELETE
+    @Path("{server}/{name}/chest-shops")
+    public String deleteRegionChestShops(
+            @PathParam("server") Server server,
+            @PathParam("name") String name,
+            @HeaderParam("Authorization") String authHeader) {
+        LOGGER.info("DELETE /regions/" + server + "/" + name + "/chest-shops");
+
+        apiKeyValidator.validateAPIKey(authHeader);
+        Long id;
+        try {
+            id = Region.id(server, name);
+        } catch (NoResultException e) {
+            throw new SDBNotFoundException(String.format(ExceptionMessage.REGION_NOT_FOUND, name, server));
+        }
+
+        long deletedCount = ChestShop.deleteByRegionId(id);
+        return "Successfully removed " + deletedCount + " chest shops from region " + name;
+    }
+
     @PUT
     @Transactional
     @Consumes("application/json")
-    public String addRegion(RegionRequest request, @HeaderParam("Authorization") String authHeader) throws Exception {
+    public String addRegion(RegionRequest request, @HeaderParam("Authorization") String authHeader) {
+        LOGGER.info("PUT /regions");
         apiKeyValidator.validateAPIKey(authHeader);
         Region r = regionService.listRegion(request);
         chestShopService.linkAndShowChestShops(r);
@@ -169,6 +190,7 @@ public class RegionController {
     @Transactional
     @Consumes("application/json")
     public String removeRegion(RegionRequest request, @HeaderParam("Authorization") String authHeader) throws Exception {
+        LOGGER.info("DELETE /regions");
         apiKeyValidator.validateAPIKey(authHeader);
         Region r = regionService.unlistRegion(request);
         chestShopService.linkAndHideChestShops(r);

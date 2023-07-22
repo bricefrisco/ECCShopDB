@@ -282,6 +282,10 @@ public class ChestShop extends PanacheEntityBase {
         ).list();
     }
 
+    public static long deleteByRegionId(Long regionId) {
+        return ChestShop.delete("town_id = ?1", regionId);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
