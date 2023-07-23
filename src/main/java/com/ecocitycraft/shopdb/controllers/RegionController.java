@@ -156,6 +156,7 @@ public class RegionController {
     }
 
     @DELETE
+    @Transactional
     @Path("{server}/{name}/chest-shops")
     public String deleteRegionChestShops(
             @PathParam("server") Server server,
