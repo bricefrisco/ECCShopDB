@@ -120,7 +120,10 @@ public class ChestShopService {
             return false;
         }
 
-        if (!event.getWorld().equals("rising") && !event.getWorld().equals("rising_n") && !event.getWorld().equals("rising_e")) {
+        if (!event.getWorld().equals("rising") &&
+                !event.getWorld().equals("rising_n") &&
+                !event.getWorld().equals("rising_e") &&
+                !event.getWorld().equals("rising_s")) {
             LOGGER.info("Skipping event " + event + " - server cannot be determined.");
             return false;
         }
@@ -172,6 +175,9 @@ public class ChestShopService {
                 break;
             case "rising_e":
                 chestShop.server = Server.MAIN_EAST;
+                break;
+            case "rising_s":
+                chestShop.server = Server.MAIN_SOUTH;
                 break;
         }
 
