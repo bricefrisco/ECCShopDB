@@ -38,4 +38,13 @@ public class Location {
     public void setZ(int z) {
         this.z = z;
     }
+
+    @Override
+    public String toString() {
+        return "Location{" +
+                "x=" + x +
+                ", y=" + y +
+                ", z=" + z +
+                '}';
+    }
 }

@@ -10,7 +10,9 @@ public enum Server {
     @JsonProperty("main-north")
     MAIN_NORTH,
     @JsonProperty("main-east")
-    MAIN_EAST;
+    MAIN_EAST,
+    @JsonProperty("main-south")
+    MAIN_SOUTH;
 
     public static Server fromString(String s) {
         switch (s) {
@@ -20,6 +22,8 @@ public enum Server {
                 return MAIN_NORTH;
             case "main-east":
                 return MAIN_EAST;
+            case "main-south":
+                return MAIN_SOUTH;
             default:
                 throw new SDBIllegalArgumentException(ExceptionMessage.INVALID_SERVER + ": " + s);
         }
@@ -34,6 +38,8 @@ public enum Server {
                 return "MAIN_NORTH";
             case MAIN_EAST:
                 return "MAIN_EAST";
+            case MAIN_SOUTH:
+                return "MAIN_SOUTH";
             default:
                 throw new SDBIllegalArgumentException(ExceptionMessage.INVALID_SERVER + ": " + server);
         }

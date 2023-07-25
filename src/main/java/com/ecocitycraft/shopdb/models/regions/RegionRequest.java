@@ -75,4 +75,16 @@ public class RegionRequest {
     public int hashCode() {
         return Objects.hash(name, server);
     }
+
+    @Override
+    public String toString() {
+        return "RegionRequest{" +
+                "name='" + name + '\'' +
+                ", server='" + server + '\'' +
+                ", iBounds=" + iBounds +
+                ", oBounds=" + oBounds +
+                ", mayorNames=" + mayorNames +
+                ", active=" + active +
+                '}';
+    }
 }
