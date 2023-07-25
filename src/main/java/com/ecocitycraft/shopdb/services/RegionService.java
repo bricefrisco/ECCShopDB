@@ -24,6 +24,7 @@ public class RegionService {
         this.servers.put("rising", Server.MAIN);
         this.servers.put("rising_n", Server.MAIN_NORTH);
         this.servers.put("rising_e", Server.MAIN_EAST);
+        this.servers.put("rising_s", Server.MAIN_SOUTH);
     }
 
     public Region listRegion(RegionRequest request) {
